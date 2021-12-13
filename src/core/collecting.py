@@ -58,6 +58,15 @@ class RedditCollector(Collector):
 
         submission = reddit.submission(id=self.id)
 
+        self.comments.append({
+            "id": self.id,
+            "content": f'{submission.title} {submission.selftext}',
+            "author": submission.author.name,
+            "likes": submission.score,
+            "time": submission.created_utc,
+            "parent_id": ''
+        })
+
         comment_queue = submission.comments[:]
 
         total_processed = 0
@@ -77,7 +86,7 @@ class RedditCollector(Collector):
                     if obj.parent_id.split('_')[0] == 't1':
                         comment_parent_id = obj.parent_id.split('_')[1]
                     else:
-                        comment_parent_id = ''
+                        comment_parent_id = self.id
                     comment_content = obj.body
                     comment_author = obj.author.name
                     comment_like_count = obj.score
@@ -94,7 +103,30 @@ class RedditCollector(Collector):
             progress_bar.total = len(comment_queue) + total_processed
 
     def save(self, dir_path: str):
-        if not os.path.exists(os.path.join(dir_path, 'reddit')):
-            os.makedirs(os.path.join(dir_path, 'reddit'))
-        with open(os.path.join(dir_path, 'reddit', self.id + '.json'), 'w') as fd:
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+        with open(f'{dir_path}/{self.id}.json', 'w') as fd:
             json.dump(self.comments, fd, indent=4)
+
+
+def download_top_threads(subreddit, time_filter='all'):
+    if not os.path.exists(f'data/raw/{subreddit}'):
+        os.makedirs(f'data/raw/{subreddit}')
+
+    reddit = praw.Reddit(user_agent='Thread grabber',
+                         client_id=os.getenv('REDDIT_CLIENT_ID'),
+                         client_secret=os.getenv('REDDIT_CLIENT_SECRET'))
+
+    submissions = reddit.subreddit(subreddit).top(time_filter)
+
+    for submission in submissions:
+        if f'{submission.id}.json' not in os.listdir(f'data/raw/{subreddit}'):
+            print(f'Collecting {submission.id}')
+            try:
+                rc = RedditCollector(submission.url)
+                rc.get_comments()
+                rc.save(f'data/raw/{subreddit}')
+            except AttributeError as e:
+                print(f'{submission.url} -> not a proper sub')
+        else:
+            print(f'{submission.id} already downloaded')

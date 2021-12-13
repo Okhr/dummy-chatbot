@@ -1,0 +1,9 @@
+Collector:
+  subreddit: 'explainlikeimfive'
+  time_filters: ['all', 'year', 'month', 'week', 'day']
+Pairs:
+  subreddit: 'explainlikeimfive'
+  top_comments: false
+Tokenizer:
+  vocab_size: 10_000
+  max_seq_length: 512
