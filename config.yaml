@@ -6,4 +6,15 @@ Pairs:
   top_comments: false
 Tokenizer:
   vocab_size: 10_000
-  max_seq_length: 512
+  max_seq_length: 128
+Model:
+  lstm:
+    embedding_dim: 100
+    hidden_dim: 8
+    n_layers: 2
+    dropout: 0.5
+  transformer:
+    seq_length: 128
+Training:
+  epochs: 20
+  batch_size: 256

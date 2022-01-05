@@ -1,5 +1,6 @@
 import json
 import os
+import pickle
 from pprint import pp
 
 import tokenizers
@@ -43,18 +44,9 @@ class RedditTokenizer:
 
         return reddit_tkn
 
-    def encode_input(self, sequence: str):
+    def encode_sequence(self, sequence: str):
         self.tokenizer.post_processor = TemplateProcessing(
-            single="[BOS] $A",
-            pair="[BOS]:0 $A:0 $B:1 [EOS]:1",
-            special_tokens=[("[BOS]", self.tokenizer.token_to_id("[BOS]")),
-                            ("[EOS]", self.tokenizer.token_to_id("[EOS]"))]
-        )
-        return self.tokenizer.encode(sequence)
-
-    def encode_output(self, sequence: str):
-        self.tokenizer.post_processor = TemplateProcessing(
-            single="$A [EOS]",
+            single="[BOS] $A [EOS]",
             pair="[BOS]:0 $A:0 $B:1 [EOS]:1",
             special_tokens=[("[BOS]", self.tokenizer.token_to_id("[BOS]")),
                             ("[EOS]", self.tokenizer.token_to_id("[EOS]"))]
@@ -62,17 +54,17 @@ class RedditTokenizer:
         return self.tokenizer.encode(sequence)
 
     def encode_pairs(self, pairs: list[(str, str)]):
-        pair_encodings = []
+        encodings = []
         dismissed_pairs = 0
-        for input_sentence, output_sentence in tqdm(pairs):
-            input_encoding = self.encode_input(input_sentence)
-            output_encoding = self.encode_output(output_sentence)
-            if input_encoding.overflowing or output_encoding.overflowing:
+        for src_sentence, trg_sentence in tqdm(pairs):
+            encoded_src = self.encode_sequence(src_sentence)
+            encoded_trg = self.encode_sequence(trg_sentence)
+            if encoded_src.overflowing or encoded_trg.overflowing:
                 dismissed_pairs += 1
             else:
-                pair_encodings.append((input_encoding, output_encoding))
+                encodings.append((encoded_src, encoded_trg))
 
-        return dismissed_pairs, pair_encodings
+        return dismissed_pairs, encodings
 
     def decode(self, ids: list[list[int]], skip_special_tokens=False):
         return self.tokenizer.decode_batch(ids, skip_special_tokens=skip_special_tokens)
@@ -87,10 +79,17 @@ if __name__ == '__main__':
     # tkn = RedditTokenizer(10_000, 8)
     # tkn.train(list_data)
     # tkn.save()
-    print(data[:10])
-    dismissed, encoded_pairs = tkn.encode_pairs(data[:10])
+    # print(data[:10])
+    # dismissed, encoded = tkn.encode_pairs(data[:10])
+    # print(dismissed)
+    # print(len(encoded))
+    # decoded_strings = tkn.decode([elem[1].ids for elem in encoded], skip_special_tokens=True)
+    # pp(decoded_strings)
+    dismissed, encoded = tkn.encode_pairs(data)
     print(dismissed)
-    print(len(encoded_pairs))
+    print(len(encoded))
 
-    decoded_strings = tkn.decode([elem[1].ids for elem in encoded_pairs])
-    pp(decoded_strings)
+    if not os.path.exists('data/encoded_pairs/explainlikeimfive'):
+        os.makedirs('data/encoded_pairs/explainlikeimfive')
+    with open('data/encoded_pairs/explainlikeimfive/top_comments.pickle', 'wb') as f:
+        pickle.dump(encoded, f)
