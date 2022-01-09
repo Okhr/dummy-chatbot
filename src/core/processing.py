@@ -81,7 +81,4 @@ def make_pairs(subreddit: str, top_comments: bool = False):
 
 
 if __name__ == '__main__':
-    with open('config.yaml') as fd:
-        params = yaml.load(fd.read(), Loader=yaml.CLoader)
-
-    make_pairs(params['Pairs']['subreddit'], top_comments=params['Pairs']['top_comments'])
+    pass

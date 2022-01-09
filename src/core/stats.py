@@ -25,3 +25,7 @@ def graph_comment_length_distribution(subreddit):
     lengths = get_comment_length_distribution(subreddit)
     plt.hist(lengths, bins=100)
     plt.show()
+
+
+if __name__ == '__main__':
+    pass

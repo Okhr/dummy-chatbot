@@ -121,12 +121,16 @@ def download_top_threads(subreddit, time_filter='all'):
 
     for submission in submissions:
         if f'{submission.id}.json' not in os.listdir(f'data/raw/{subreddit}'):
-            print(f'Collecting {submission.id}')
+            print(f'Collecting <{submission.id}>')
             try:
                 rc = RedditCollector(submission.url)
                 rc.get_comments()
                 rc.save(f'data/raw/{subreddit}')
             except AttributeError as e:
-                print(f'{submission.url} -> not a proper sub')
+                print(f'<{submission.url}> is not a proper sub')
         else:
-            print(f'{submission.id} already downloaded')
+            print(f'<{submission.id}> already downloaded')
+
+
+if __name__ == '__main__':
+    pass

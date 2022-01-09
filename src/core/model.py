@@ -1,11 +1,12 @@
+import math
 import random
 
 import torch
 import torch.nn as nn
-import torch.optim as optim
+from torch.nn import TransformerEncoderLayer, TransformerEncoder
 
 
-class Encoder(nn.Module):
+class LSTMEncoder(nn.Module):
     def __init__(self, vocab_size, embedding_dim, hidden_dim, n_layers, dropout_rate):
         super().__init__()
         self.hidden_dim = hidden_dim
@@ -21,7 +22,7 @@ class Encoder(nn.Module):
         return h, c
 
 
-class Decoder(nn.Module):
+class LSTMDecoder(nn.Module):
     def __init__(self, vocab_size, embedding_dim, hidden_dim, n_layers, dropout_rate):
         super().__init__()
         self.vocab_size = vocab_size
@@ -42,20 +43,17 @@ class Decoder(nn.Module):
         return prediction, h, c
 
 
-class Seq2seq(nn.Module):
-    def __init__(self, encoder, decoder, device):
+class LSTMSeq2seq(nn.Module):
+    def __init__(self, encoder, decoder):
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
-        self.device = device
 
     def forward(self, src, trg, tf_ratio=0.5):
-        src = src.to(self.device)
-        trg = trg.to(self.device)
         batch_size = trg.shape[0]
         sequence_length = trg.shape[1]
         vocab_size = self.decoder.vocab_size
-        outputs = torch.zeros(batch_size, sequence_length, vocab_size).to(self.device)
+        outputs = torch.zeros(batch_size, sequence_length, vocab_size)
         h, c = self.encoder(src)
         input_token = trg[:, 0]
 
@@ -66,6 +64,54 @@ class Seq2seq(nn.Module):
             top_prediction = output.argmax(1)
             input_token = trg[:, t] if tf else top_prediction
         return outputs
+
+    def init_weights(self):
+        for name, param in self.named_parameters():
+            nn.init.uniform_(param.data, -0.08, 0.08)
+
+
+class GPTLike(nn.Module):
+    def __init__(self, vocab_size, d_model, n_head, hidden_dim, n_layers, dropout=0.5):
+        super().__init__()
+        self.pos_encoder = PositionalEncoding(d_model, dropout)
+        encoder_layers = TransformerEncoderLayer(d_model, n_head, hidden_dim, dropout)
+        self.transformer_encoder = TransformerEncoder(encoder_layers, n_layers)
+        self.embedding = nn.Embedding(vocab_size, d_model)
+        self.d_model = d_model
+        self.decoder = nn.Linear(d_model, vocab_size)
+
+        self.init_weights()
+
+    def init_weights(self):
+        init_range = 0.1
+        self.embedding.weight.data.uniform_(-init_range, init_range)
+        self.decoder.bias.data.zero_()
+        self.decoder.weight.data.uniform_(-init_range, init_range)
+
+    def forward(self, src, src_mask):
+        src = self.embedding(src) * math.sqrt(self.d_model)
+        src = self.pos_encoder(src)
+        output = self.transformer_encoder(src, src_mask)
+        output = self.decoder(output)
+        return output
+
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model, dropout=0.1, max_len=5000):
+        super().__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        self.d_model = d_model
+        position = torch.arange(max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+        pe = torch.zeros(max_len, 1, d_model)
+        pe[:, 0, 0::2] = torch.sin(position * div_term)
+        pe[:, 0, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        x = x * math.sqrt(self.d_model)
+        x = x + self.pe[:x.size(0)]
+        return self.dropout(x)
 
 
 if __name__ == '__main__':
