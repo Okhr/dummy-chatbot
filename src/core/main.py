@@ -123,7 +123,7 @@ if __name__ == '__main__':
 
     if params['Training']['active']:
 
-        dev = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+        dev = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         print(f'Device : {torch.cuda.get_device_name(dev)}')
 
         epochs_done = 0
@@ -197,7 +197,10 @@ if __name__ == '__main__':
             tkn = RedditTokenizer.load(f"data/tokenizers/vocab{vocab_size}_seq{max_seq_length}.json")
             pad_id = tkn.tokenizer.token_to_id('[PAD]')
 
-            opt = optim.Adam(m.parameters(), lr=2.5e-4)
+            # opt = optim.Adam(m.parameters(), lr=2.5e-4)
+            opt = torch.optim.SGD(m.parameters(), lr=5.0)
+            scheduler = torch.optim.lr_scheduler.StepLR(opt, 1, gamma=0.95)
+
             crit = nn.CrossEntropyLoss(ignore_index=pad_id)
 
         # load the appropriate weights and epoch number if we are training an already existing model
@@ -240,6 +243,8 @@ if __name__ == '__main__':
 
         train_data_loader = DataLoader(train_dataset, batch_size=params['Training']['batch_size'], shuffle=True)
         val_data_loader = DataLoader(val_dataset, batch_size=params['Training']['batch_size'], shuffle=False)
+        del train_encoded_dataset
+        del val_encoded_dataset
 
         # --------------- TRAINING ---------------
         best_validation_loss = float('inf')
@@ -265,15 +270,15 @@ if __name__ == '__main__':
             else:
                 train_loss = train_transformer(m, train_data_loader, opt, crit, device=dev)
 
-            if not os.path.exists(f"logs/{model_name.split('.')[0]}"):
-                os.makedirs(f"logs/{model_name.split('.')[0]}")
+            if not os.path.exists(f"logs/{model_name.split('.ckpt')[0]}"):
+                os.makedirs(f"logs/{model_name.split('.ckpt')[0]}")
 
             if model_type == 'lstm':
                 val_loss = evaluate_lstm(m, val_data_loader, crit, tkn,
-                                         f"logs/{model_name.split('.')[0]}/epoch{actual_epoch}.txt", device=dev)
+                                         f"logs/{model_name.split('.ckpt')[0]}/epoch{actual_epoch}.txt", device=dev)
             else:
                 val_loss = evaluate_transformer(m, val_data_loader, crit, tkn,
-                                                f"logs/{model_name.split('.')[0]}/epoch{actual_epoch}.txt", device=dev)
+                                                f"logs/{model_name.split('.ckpt')[0]}/epoch{actual_epoch}.txt", device=dev)
 
             end = time.time()
 
@@ -294,8 +299,10 @@ if __name__ == '__main__':
                 }, f'models/{model_name}')
 
             print(
-                f'Epoch summary : [Train loss : {train_loss:.4f}] - [Validation loss : {val_loss:.4f}/{best_validation_loss:.4f}] - [{minutes:02}min {seconds:02}sec]')
+                f'Epoch summary : [Train loss : {train_loss:.4f}] - [Validation loss : {val_loss:.4f}/{best_validation_loss:.4f}] - [{minutes:02}min {seconds:02}sec] - [LR : {scheduler.get_last_lr()}]')
             print()
+
+            scheduler.step()
 
     else:
         print('This step is not active')

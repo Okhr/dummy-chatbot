@@ -104,11 +104,13 @@ def train_transformer(model, data_loader, optimizer, criterion, device=torch.dev
 
         loss = criterion(output, trg)
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
         optimizer.step()
 
         end = time.time()
 
-        # print(f'Training batch {i + 1}/{len(data_loader)} - Loss : {loss.item()} - Time : {int(end - start)}s')
+        if (i + 1) % 100 == 0:
+            print(f'Training batch {i + 1}/{len(data_loader)} - Loss : {loss.item()} - Time : {float(end - start)}s')
 
         epoch_loss += loss.item()
         progress_bar.update(1)
@@ -179,9 +181,11 @@ def evaluate_transformer(model, data_loader, criterion, tokenizer, file_path, de
             trg = trg.reshape(-1)
 
             loss = criterion(output, trg)
-            # print(f'Validation batch {i + 1}/{len(data_loader)} - Loss : {loss.item()}')
 
             epoch_loss += loss.item()
+
+            if (i + 1) % 10 == 0:
+                print(f'Validation batch {i + 1}/{len(data_loader)} - Loss : {loss.item()}')
 
             # writing model outputs to disk
             with open(file_path, 'a', encoding='utf-8') as file:

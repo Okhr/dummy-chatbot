@@ -10,7 +10,7 @@ Pairs:
 Tokenizer:
   training_active: false #whether to train a new tokenizer based on the following parameters or not
   dataset_making_active: false #whether to write pair datasets to disk (lstm and transformer formatted) or not
-  vocab_size: 10_000
+  vocab_size: 5000
   max_seq_length: 256
 
 Training:
@@ -24,10 +24,10 @@ Training:
     n_layers: 2
     dropout: 0.3
   transformer:
-    d_model: 256
+    d_model: 128
     n_heads: 4
-    hidden_dim: 1024
-    n_layers: 8
+    hidden_dim: 512
+    n_layers: 6
     dropout: 0.5
   epochs: 100
   batch_size: 64
